@@ -1,18 +1,18 @@
-# Dependency
+# Targeted Sentiment model
+This repository contains the modified code used to train POS tagging parser, we modified some code and parameter to build our POS tagging parser. You can find our setting in the paper.
 
-## Training normal and non-tag dependency:
+### 1 Training the baseline:
 
-**Normal Model**:
+```bash
+python network.py --config_file config/myconfig.cfg --save_dir saves/mymodel --model Attention --stack False
+```
+### 2 Training the stack model:
 
 ``` bash
-python network.py --config_file config/myconfig.cfg --save_dir saves/mymodel --model Parser
+python network.py --config_file config/myconfig.cfg --load [the pre-trained model dir/file] --model Attention --stack True
 ```
 
-**Non-tag Model:**
-
-``` bash
-python network.py --config_file config/myconfig.cfg --save_dir saves/mymodel --model NoTagParser
-```
+You should input the pre-trained model file with its name after `--load` option. In tensorflow, the model are saved in three different kind file with the same name.
 
 
 
@@ -20,7 +20,15 @@ python network.py --config_file config/myconfig.cfg --save_dir saves/mymodel --m
 
 -----
 
-# Parser
+# More Detail pls find in the Original Readme:
+
+-----
+
+-----
+
+# Original Readme:
+
+## Parser
 
 This repository contains the code used to train the parsers described in the paper [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734). Here we describe how the source code is structured and how to train/validate/test models.
 

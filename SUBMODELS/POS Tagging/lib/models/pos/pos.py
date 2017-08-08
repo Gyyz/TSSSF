@@ -30,7 +30,7 @@ class POS(BaseParser):
     self.moving_params = moving_params
     
     word_inputs = vocabs[0].embedding_lookup(inputs[:,:,0], inputs[:,:,1], moving_params=self.moving_params)
-    tags  = vocabs[1].embedding_lookup(inputs[:,:,2], moving_params=self.moving_params)
+    tags  = inputs[:,:,2]
     
     top_recur = self.embed_concat(word_inputs)
     for i in xrange(self.n_recur):
@@ -38,56 +38,34 @@ class POS(BaseParser):
         top_recur, _ = self.RNN(top_recur)
     
     with tf.variable_scope('POS', reuse=reuse):
-      
+      top_recur = self.MLP(top_recur)
+      input_size = top_recur.get_shape().as_list()[-1]
+      batch_size = tf.shape(top_recur)[0]
+      bucket_size = tf.shape(top_recur)[1]
+      input_shape = tf.pack([batch_size, bucket_size, input_size])
 
-    top_mlp = top_recur
-    if self.n_mlp > 0:
-      with tf.variable_scope('MLP0', reuse=reuse):
-        dep_mlp, head_dep_mlp, rel_mlp, head_rel_mlp = self.MLP(top_mlp, n_splits=4)
-      for i in xrange(1,self.n_mlp):
-        with tf.variable_scope('DepMLP%d' % i, reuse=reuse):
-          dep_mlp = self.MLP(dep_mlp)
-        with tf.variable_scope('HeadDepMLP%d' % i, reuse=reuse):
-          head_dep_mlp = self.MLP(head_dep_mlp)
-        with tf.variable_scope('RelMLP%d' % i, reuse=reuse):
-          rel_mlp = self.MLP(rel_mlp)
-        with tf.variable_scope('HeadRelMLP%d' % i, reuse=reuse):
-          head_rel_mlp = self.MLP(head_rel_mlp)
-    else:
-      dep_mlp = head_dep_mlp = rel_mlp = head_rel_mlp = top_mlp
-    
-    with tf.variable_scope('Parses', reuse=reuse):
-      parse_logits = self.bilinear_classifier(dep_mlp, head_dep_mlp, add_bias1=True)
-      parse_output = self.output(parse_logits, targets[:,:,1])
-      if moving_params is None:
-        predictions = targets[:,:,1]
-      else:
-        predictions = parse_output['predictions']
-    with tf.variable_scope('Rels', reuse=reuse):
-      rel_logits, rel_logits_cond = self.conditional_bilinear_classifier(rel_mlp, head_rel_mlp, len(vocabs[2]), predictions)
-      rel_output = self.output(rel_logits, targets[:,:,2])
-      rel_output['probabilities'] = self.conditional_probabilities(rel_logits_cond)
-    
-    output = {}
-    output['probabilities'] = tf.tuple([parse_output['probabilities'],
-                                        rel_output['probabilities']])
-    output['predictions'] = tf.pack([parse_output['predictions'],
-                                     rel_output['predictions']])
-    output['correct'] = parse_output['correct'] * rel_output['correct']
-    output['tokens'] = parse_output['tokens']
-    output['n_correct'] = tf.reduce_sum(output['correct'])
-    output['n_tokens'] = self.n_tokens
-    output['accuracy'] = output['n_correct'] / output['n_tokens']
-    output['loss'] = parse_output['loss'] + rel_output['loss'] 
-    
-    output['embed'] = tf.pack([word_inputs, tag_inputs])
-    output['recur'] = top_recur
-    output['dep'] = dep_mlp
-    output['head_dep'] = head_dep_mlp
-    output['rel'] = rel_mlp
-    output['head_rel'] = head_rel_mlp
-    output['parse_logits'] = parse_logits
-    output['rel_logits'] = rel_logits
+      hdstate = tf.reshape(top_recur, input_shape)
+
+      clsWeight = tf.get_variable('softmax', [input_size, len(vocab[1])], initializer=tf.random_normal_initializer())
+      clsBias = tf.get_variable('softmaxbias', [len(vocab[1])], initializer=tf.zero_initializer)
+
+      POS_logits = tf.matmul(hdstate, clsWeight)+clsBias
+
+      POS_label = tf.softmax(POS_logits, axis=1)
+
+      POS_out = self.output(POS_logits, tags)
+
+      output = {}
+
+      output['predictions'] = POS_label
+      output['correct'] = POS_out['correct']
+      output['tokens'] = POS_out['tokens']
+      output['n_correct'] = tf.reduce_sum(output['correct'])
+      output['n_tokens'] = self.n_tokens
+      output['accuracy'] = POS_out['n_correct'] / POS_out['n_tokens']
+      output['loss'] = POS_out['loss']
+      output['POS_logits'] = POS_logits
+   
     return output
   
   #=============================================================
