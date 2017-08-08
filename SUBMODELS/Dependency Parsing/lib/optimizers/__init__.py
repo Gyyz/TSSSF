@@ -1,2 +1,0 @@
-from sgd_optimizer import SGDOptimizer 
-from radam_optimizer import RadamOptimizer
