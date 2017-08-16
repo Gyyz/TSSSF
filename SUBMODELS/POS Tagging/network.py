@@ -160,7 +160,7 @@ class Network(Configurable):
     """"""
     
     save_path = os.path.join(self.save_dir, self.name.lower() + '-pretrained')
-    saver = tf.train.Saver(name=self.name, max_to_keep=1)
+    saver = tf.train.Saver(name=self.name, max_to_keep=36)
     
     n_bkts = self.n_bkts
     train_iters = self.train_iters
@@ -210,7 +210,7 @@ class Network(Configurable):
                 n_valid_sents += len(targets)
                 n_valid_correct += n_correct
                 n_valid_tokens += n_tokens
-                self.model.sanity_check(inputs, targets, predictions, self._vocabs, f)
+               # self.model.sanity_check(inputs, targets, predictions, self._vocabs, f)
             valid_loss /= k+1
             valid_accuracy = 100 * n_valid_correct / n_valid_tokens
             valid_time = n_valid_sents / valid_time
@@ -269,36 +269,36 @@ class Network(Configurable):
     for (feed_dict, sents) in minibatches():
       mb_inputs = feed_dict[dataset.inputs]
       mb_targets = feed_dict[dataset.targets]
-      mb_probs = sess.run(op, feed_dict=feed_dict)
-      all_predictions[-1].extend(self.model.validate(mb_inputs, mb_targets, mb_probs))
-      all_sents[-1].extend(sents)
-      if len(all_predictions[-1]) == len(dataset[bkt_idx]):
-        bkt_idx += 1
-        if bkt_idx < len(dataset._metabucket):
-          all_predictions.append([])
-          all_sents.append([])
+      mb_probs, accuracy = sess.run(op, feed_dict=feed_dict)
+#      all_predictions[-1].extend(self.model.validate(mb_inputs, mb_targets, mb_probs))
+#      all_sents[-1].extend(sents)
+#      if len(all_predictions[-1]) == len(dataset[bkt_idx]):
+#        bkt_idx += 1
+#        if bkt_idx < len(dataset._metabucket):
+#          all_predictions.append([])
+#          all_sents.append([])
     with open(os.path.join(self.save_dir, os.path.basename(filename)), 'w') as f:
       for bkt_idx, idx in dataset._metabucket.data:
         data = dataset._metabucket[bkt_idx].data[idx][1:]
-        preds = all_predictions[bkt_idx][idx]
-        words = all_sents[bkt_idx][idx]
-        for i, (datum, word, pred) in enumerate(zip(data, words, preds)):
-          tup = (
-            i+1,
-            word,
-            self.tags[pred[3]] if pred[3] != -1 else self.tags[datum[2]],
-            self.tags[pred[4]] if pred[4] != -1 else self.tags[datum[3]],
-            str(pred[5]) if pred[5] != -1 else str(datum[4]),
-            self.rels[pred[6]] if pred[6] != -1 else self.rels[datum[5]],
-            str(pred[7]) if pred[7] != -1 else '_',
-            self.rels[pred[8]] if pred[8] != -1 else '_',
-          )
-          f.write('%s\t%s\t_\t%s\t%s\t_\t%s\t%s\t%s\t%s\n' % tup)
-        f.write('\n')
-    with open(os.path.join(self.save_dir, 'scores.txt'), 'a') as f:
-      s, _ = self.model.evaluate(os.path.join(self.save_dir, os.path.basename(filename)), punct=self.model.PUNCT)
-      f.write(s)
-    return
+ #       preds = all_predictions[bkt_idx][idx]
+ #       words = all_sents[bkt_idx][idx]
+ #       for i, (datum, word, pred) in enumerate(zip(data, words, preds)):
+ #         tup = (
+ #           i+1,
+ #           word,
+ #           self.tags[pred[3]] if pred[3] != -1 else self.tags[datum[2]],
+ #           self.tags[pred[4]] if pred[4] != -1 else self.tags[datum[3]],
+ #           str(pred[5]) if pred[5] != -1 else str(datum[4]),
+ #           self.rels[pred[6]] if pred[6] != -1 else self.rels[datum[5]],
+ #           str(pred[7]) if pred[7] != -1 else '_',
+ #           self.rels[pred[8]] if pred[8] != -1 else '_',
+ #         )
+ #         f.write('%s\t%s\t_\t%s\t%s\t_\t%s\t%s\t%s\t%s\n' % tup)
+ #       f.write('\n')
+ #   with open(os.path.join(self.save_dir, 'scores.txt'), 'a') as f:
+ #     s, _ = self.model.evaluate(os.path.join(self.save_dir, os.path.basename(filename)), punct=self.model.PUNCT)
+ #     f.write(s)
+    return accuracy
   
   #=============================================================
   def _gen_ops(self):
@@ -339,8 +339,8 @@ class Network(Configurable):
                        valid_output['n_correct'],
                        valid_output['n_tokens'],
                        valid_output['predictions']]
-    ops['test_op'] = [valid_output['probabilities'],
-                      test_output['probabilities']]
+    ops['test_op'] = [[valid_output['probabilities'],valid_output['accuracy']],
+                      [test_output['probabilities'],test_output['accuracy']]]
     ops['optimizer'] = optimizer
     
     return ops

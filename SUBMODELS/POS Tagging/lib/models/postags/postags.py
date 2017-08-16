@@ -10,9 +10,10 @@ import tensorflow as tf
 
 from vocab import Vocab
 from lib.models.parsers.base_parser import BaseParser
+from lib.models.postags.basetags import Basetags
 
 #***************************************************************
-class POS(BaseParser):
+class Postags(Basetags):
   """"""
   
   #=============================================================
@@ -30,44 +31,33 @@ class POS(BaseParser):
     self.moving_params = moving_params
     
     word_inputs = vocabs[0].embedding_lookup(inputs[:,:,0], inputs[:,:,1], moving_params=self.moving_params)
-    tags  = inputs[:,:,2]
-    
-    top_recur = self.embed_concat(word_inputs)
+#    tag_inputs  = vocabs[1].embedding_lookup(inputs[:,:,2], moving_params=self.moving_params)
+
+    top_recur = self.embed_concat(word_inputs)#, tag_inputs)
     for i in xrange(self.n_recur):
       with tf.variable_scope('RNN%d' % i, reuse=reuse):
         top_recur, _ = self.RNN(top_recur)
-    
-    with tf.variable_scope('POS', reuse=reuse):
-      top_recur = self.MLP(top_recur)
+
+    with tf.variable_scope('Tags', reuse = reuse):
       input_size = top_recur.get_shape().as_list()[-1]
       batch_size = tf.shape(top_recur)[0]
       bucket_size = tf.shape(top_recur)[1]
       input_shape = tf.pack([batch_size, bucket_size, input_size])
+      if reuse is None:
+        top_recur = tf.nn.dropout(top_recur, 0.6, seed=666)
+#      top_recur = tf.reshape(top_recur, input_shape)
+      weight_pos = tf.get_variable('pos', [input_size, len(vocabs[1])], initializer=tf.random_normal_initializer())
+      bias_pos = tf.get_variable('pos_bias', [1], initializer=tf.zeros_initializer)
+      top_recur = tf.reshape(top_recur, [-1, input_size])
+      pos_logits = tf.matmul(top_recur, weight_pos) + bias_pos
+      pos_logits = tf.reshape(pos_logits, tf.pack([batch_size, bucket_size,len(vocabs[1])]))
+      output = self.posout(pos_logits, targets[:,:,0])
+      output['embed'] = tf.pack([word_inputs])
+      output['recur'] = top_recur
+      output['pos_logits'] = pos_logits
 
-      hdstate = tf.reshape(top_recur, input_shape)
-
-      clsWeight = tf.get_variable('softmax', [input_size, len(vocab[1])], initializer=tf.random_normal_initializer())
-      clsBias = tf.get_variable('softmaxbias', [len(vocab[1])], initializer=tf.zero_initializer)
-
-      POS_logits = tf.matmul(hdstate, clsWeight)+clsBias
-
-      POS_label = tf.softmax(POS_logits, axis=1)
-
-      POS_out = self.output(POS_logits, tags)
-
-      output = {}
-
-      output['predictions'] = POS_label
-      output['correct'] = POS_out['correct']
-      output['tokens'] = POS_out['tokens']
-      output['n_correct'] = tf.reduce_sum(output['correct'])
-      output['n_tokens'] = self.n_tokens
-      output['accuracy'] = POS_out['n_correct'] / POS_out['n_tokens']
-      output['loss'] = POS_out['loss']
-      output['POS_logits'] = POS_logits
-   
     return output
-  
+
   #=============================================================
   def prob_argmax(self, parse_probs, rel_probs, tokens_to_keep):
     """"""

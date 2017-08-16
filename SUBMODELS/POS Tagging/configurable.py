@@ -134,6 +134,9 @@ class Configurable(object):
     return self._config.getint('Layers', 'n_recur')
   argparser.add_argument('--n_recur')
   @property
+  def fs_n_recur(self):
+    return self._config.getint('Layers', 'fs_n_recur')
+  @property
   def n_mlp(self):
     return self._config.getint('Layers', 'n_mlp')
   argparser.add_argument('--n_mlp')
