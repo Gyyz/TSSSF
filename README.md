@@ -1,6 +1,6 @@
 # Targeted Sentiment Analysis
  
-This repository is the code for paper [*Implicit Syntactic Features for Targeted Sentiment Analysis*](http://www.aclweb.org/anthology/I17-1052) (Please be noted the github link in the paper is changed duo to the changed username, https://github.com/CooDL/
+This repository is the code for paper [*Implicit Syntactic Features for Targeted Sentiment Analysis*](http://www.aclweb.org/anthology/I17-1052) (Please be noted the github link in the paper is changed due to the changed username, https://github.com/CooDL/
 TSSSF .), it contains the modified code used to train the targeted sentiment analysis. We mainly employ the tensorflow LSTM framework in the paper [*deep biaffine attention for neural dependency parsing*](https://arxiv.org/abs/1611.01734). [[CODE](https://github.com/tdozat/Parser)] All our modified codes mainly inlude `/lib/models/` dirs, `network.py`, `dataset.py`, `bucket.py` and `vocab.py`  parts of the original CODE
 
 ## 1. Pre-trainning Submodels
